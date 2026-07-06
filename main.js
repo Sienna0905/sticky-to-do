@@ -35,7 +35,7 @@ const COLLAPSED_WIDTH = 8
 const EDGE_DETECT_WIDTH = 4
 const EDGE_DETECT_INTERVAL = 80
 const EDGE_DETECT_DWELL_MS = 500
-const WAKE_SHORTCUT = 'Control+Alt+Space'
+const WAKE_SHORTCUTS = ['CommandOrControl+Shift+Y', 'CommandOrControl+Alt+Space']
 const ICON_PATH = path.join(__dirname, 'assets', 'icon.png')
 
 // ── 内嵌托盘图标（32×32 绿色，无需外部文件）─────
@@ -121,6 +121,19 @@ function wakePanel() {
   showWindow()
 }
 
+function registerWakeShortcuts() {
+  const registered = []
+  for (const shortcut of WAKE_SHORTCUTS) {
+    try {
+      if (globalShortcut.register(shortcut, wakePanel)) registered.push(shortcut)
+    } catch (e) {}
+  }
+  if (!registered.length) {
+    notifyUpdate('便签快捷键不可用', '唤醒快捷键被系统或其他应用占用。')
+  }
+  return registered
+}
+
 // ── 鼠标触边自动展开 ─────────────────────────────
 function startEdgeDetect() {
   setInterval(() => {
@@ -186,7 +199,7 @@ function updateTrayMenu() {
     },
     {
       label: '唤醒面板',
-      accelerator: WAKE_SHORTCUT,
+      accelerator: WAKE_SHORTCUTS[0],
       click: () => wakePanel()
     },
     {
@@ -330,7 +343,7 @@ ipcMain.handle('notify', (_, { title, body }) => {
 app.whenReady().then(() => {
   createWindow()
   createTray()
-  globalShortcut.register(WAKE_SHORTCUT, wakePanel)
+  registerWakeShortcuts()
   startEdgeDetect()
   configureAutoUpdate()
   setTimeout(checkForUpdates, 5000)
