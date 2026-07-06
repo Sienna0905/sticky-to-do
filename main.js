@@ -1,6 +1,6 @@
 const {
   app, BrowserWindow, Tray, Menu, ipcMain,
-  screen, nativeImage, Notification
+  screen, nativeImage, Notification, globalShortcut
 } = require('electron')
 const path = require('path')
 const fs   = require('fs')
@@ -35,6 +35,7 @@ const COLLAPSED_WIDTH = 8
 const EDGE_DETECT_WIDTH = 4
 const EDGE_DETECT_INTERVAL = 80
 const EDGE_DETECT_DWELL_MS = 500
+const WAKE_SHORTCUT = 'Control+Alt+Space'
 const ICON_PATH = path.join(__dirname, 'assets', 'icon.png')
 
 // ── 内嵌托盘图标（32×32 绿色，无需外部文件）─────
@@ -115,6 +116,11 @@ function showWindow(options = {}) {
   w.focus()
 }
 
+function wakePanel() {
+  if (!safeWin()) createWindow()
+  showWindow()
+}
+
 // ── 鼠标触边自动展开 ─────────────────────────────
 function startEdgeDetect() {
   setInterval(() => {
@@ -177,6 +183,11 @@ function updateTrayMenu() {
     {
       label: isExpanded ? '收起面板' : '展开面板',
       click: () => isExpanded ? collapsePanel() : showWindow()
+    },
+    {
+      label: '唤醒面板',
+      accelerator: WAKE_SHORTCUT,
+      click: () => wakePanel()
     },
     {
       label: isPinned ? '取消固定（触边展开）' : '固定在侧边',
@@ -319,6 +330,7 @@ ipcMain.handle('notify', (_, { title, body }) => {
 app.whenReady().then(() => {
   createWindow()
   createTray()
+  globalShortcut.register(WAKE_SHORTCUT, wakePanel)
   startEdgeDetect()
   configureAutoUpdate()
   setTimeout(checkForUpdates, 5000)
@@ -332,5 +344,6 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   if (updateCheckTimer) clearInterval(updateCheckTimer)
+  globalShortcut.unregisterAll()
   app.isQuiting = true
 })
