@@ -1,0 +1,40 @@
+{
+  "name": "sticky-todo",
+  "version": "1.0.2",
+  "description": "桌面侧边便签待办",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "release": "electron-builder --win --x64 --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "com.stickytodo.app",
+    "productName": "便签",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Sienna0905",
+        "repo": "sticky-to-do"
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "便签"
+    }
+  }
+}

@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>便签</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0ede6;--panel:#fff;--panel2:#f4f1eb;--panel3:#eceae3;
+  --b:rgba(0,0,0,.08);--b2:rgba(0,0,0,.14);--b3:rgba(0,0,0,.22);
+  --t1:#1a1814;--t2:#6b6860;--t3:#9e9c97;
+  --green:#2d5a3d;--green-l:#e8f2eb;
+  --amber:#c4813a;--amber-l:#fdf3e7;
+  --red:#c0392b;--red-l:#fdecea;
+  --blue:#2563a8;--blue-l:#e8f0fa;
+  --purple:#6b4fad;--purple-l:#f0ecfa;
+  --teal:#0f766e;--teal-l:#e0f2f0;
+  --r:10px;--rs:6px;
+  --sans:'Noto Sans SC',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --sidebar-w:360px;
+}
+
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);font-size:14px;user-select:none}
+
+/* ════════════════════════════════
+   LAYOUT
+════════════════════════════════ */
+.app{display:flex;flex-direction:column;height:100vh;background:var(--panel);transition:transform .32s cubic-bezier(.4,0,.2,1)}
+
+/* 收起时整体右移，露出触边条 */
+body.collapsed .app{transform:translateX(calc(var(--sidebar-w) - 8px))}
+
+/* ════════════════════════════════
+   TITLEBAR (drag region)
+════════════════════════════════ */
+.titlebar{
+  height:44px;background:var(--panel);border-bottom:1px solid var(--b);
+  display:flex;align-items:center;justify-content:space-between;padding:0 12px;
+  flex-shrink:0;-webkit-app-region:drag;
+}
+.titlebar *{-webkit-app-region:no-drag}
+.app-name{font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px;letter-spacing:-.01em}
+.app-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+.app-logo{width:18px;height:18px;border-radius:5px;flex-shrink:0}
+.tbbtns{display:flex;gap:4px}
+.tb{width:28px;height:28px;border-radius:var(--rs);border:1px solid var(--b2);background:transparent;
+  cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;
+  color:var(--t2);transition:background .12s;position:relative}
+.tb:hover{background:var(--panel2)}
+.tb.on{background:var(--green-l);color:var(--green);border-color:rgba(45,90,61,.2)}
+.tb-tip{position:absolute;bottom:-26px;left:50%;transform:translateX(-50%);
+  background:var(--t1);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;
+  white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s;z-index:99}
+.tb:hover .tb-tip{opacity:1}
+
+/* ════════════════════════════════
+   VIEW SWITCHER (tasks / notes)
+════════════════════════════════ */
+.view-tabs{display:flex;padding:0 12px;border-bottom:1px solid var(--b);flex-shrink:0;background:var(--panel)}
+.vtab{flex:1;height:36px;border:none;background:transparent;cursor:pointer;
+  font-family:var(--sans);font-size:12px;font-weight:500;color:var(--t3);
+  border-bottom:2px solid transparent;transition:color .15s,border-color .15s;display:flex;align-items:center;justify-content:center;gap:5px}
+.vtab.on{color:var(--green);border-bottom-color:var(--green)}
+.vtab:hover:not(.on){color:var(--t2)}
+
+/* ════════════════════════════════
+   SEARCH
+════════════════════════════════ */
+.search-wrap{padding:9px 12px;border-bottom:1px solid var(--b);flex-shrink:0}
+.search-inner{position:relative}
+.search-input{width:100%;height:32px;padding:0 9px 0 28px;border:1px solid var(--b2);
+  border-radius:var(--rs);background:var(--panel2);font-family:var(--sans);
+  font-size:13px;color:var(--t1);outline:none;transition:border-color .14s}
+.search-input:focus{border-color:var(--green);background:#fff}
+.search-input::placeholder{color:var(--t3)}
+.search-ico{position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--t3);pointer-events:none}
+
+/* ════════════════════════════════
+   PROGRESS
+════════════════════════════════ */
+.prog-wrap{padding:7px 12px;border-bottom:1px solid var(--b);flex-shrink:0}
+.prog-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+.prog-lbl{font-size:10px;color:var(--t3);font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.prog-pct{font-size:11px;font-weight:700;font-family:var(--mono);color:var(--green)}
+.prog-track{height:3px;background:var(--panel2);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:var(--green);border-radius:2px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+
+/* ════════════════════════════════
+   STATS
+════════════════════════════════ */
+.stats{display:none;padding:8px 12px;border-bottom:1px solid var(--b);gap:5px;flex-shrink:0}
+.stats.show{display:flex}
+.stat{flex:1;background:var(--panel2);border-radius:var(--rs);padding:6px;text-align:center}
+.stat-n{font-size:17px;font-weight:700;font-family:var(--mono);color:var(--t1)}
+.stat-l{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-top:1px}
+
+/* ════════════════════════════════
+   FOLDER BAR
+════════════════════════════════ */
+.folder-bar{padding:7px 8px;border-bottom:1px solid var(--b);display:flex;gap:4px;align-items:center;
+  overflow-x:auto;flex-shrink:0;scrollbar-width:none}
+.folder-bar::-webkit-scrollbar{display:none}
+.chip{padding:4px 10px;border-radius:20px;border:1px solid var(--b2);background:transparent;
+  font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;
+  white-space:nowrap;color:var(--t2);transition:all .12s;display:flex;align-items:center;gap:4px}
+.chip.on{background:var(--green);color:#fff;border-color:var(--green)}
+.chip:hover:not(.on){background:var(--panel2)}
+.chip-n{font-size:10px;font-family:var(--mono);padding:1px 4px;border-radius:8px;background:rgba(0,0,0,.08)}
+.chip.on .chip-n{background:rgba(255,255,255,.25)}
+.chip-add{width:26px;height:26px;border-radius:50%;border:1px dashed var(--b2);background:transparent;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;
+  color:var(--t3);flex-shrink:0;transition:all .12s}
+.chip-add:hover{border-color:var(--green);color:var(--green);background:var(--green-l)}
+
+/* ════════════════════════════════
+   TASK LIST
+════════════════════════════════ */
+.tasks-area{flex:1;overflow-y:auto;padding:8px 10px;scrollbar-width:thin;scrollbar-color:var(--b2) transparent}
+.tasks-area::-webkit-scrollbar{width:3px}
+.tasks-area::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+
+.grp-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--t3);margin:6px 4px 5px;display:flex;align-items:center;gap:6px}
+.grp-lbl::after{content:'';flex:1;height:1px;background:var(--b)}
+.grp-lbl.fold{cursor:pointer}
+.grp-lbl.fold:hover{color:var(--green)}
+
+.empty{text-align:center;padding:40px 0;color:var(--t3);font-size:13px;line-height:2}
+
+/* ── Task card ── */
+.card{background:#fff;border:1px solid var(--b);border-radius:var(--r);
+  padding:10px 11px 10px 14px;margin-bottom:6px;cursor:pointer;
+  transition:box-shadow .14s,transform .14s;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px}
+.card.fc-0::before{background:var(--green)}
+.card.fc-1::before{background:var(--blue)}
+.card.fc-2::before{background:var(--purple)}
+.card.fc-3::before{background:var(--amber)}
+.card.fc-4::before{background:var(--teal)}
+.card.fc-5::before{background:var(--red)}
+.card:hover{box-shadow:0 2px 10px rgba(0,0,0,.09);transform:translateY(-1px)}
+.card.done-card{opacity:.42}
+.card.urg-card{border-color:rgba(192,57,43,.22);background:#fffafa}
+.card.expanded{border-radius:var(--r) var(--r) 0 0}
+
+/* card top row */
+.card-top{display:flex;align-items:flex-start;gap:8px}
+.chk{width:17px;height:17px;border-radius:50%;border:1.5px solid var(--b2);flex-shrink:0;
+  margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .12s;background:transparent}
+.chk:hover{border-color:var(--green);background:var(--green-l)}
+.chk.on{background:var(--green);border-color:var(--green)}
+.chk.on::after{content:'';width:7px;height:4px;border-left:2px solid #fff;
+  border-bottom:2px solid #fff;transform:rotate(-45deg) translateY(-1px);display:block}
+
+.card-body{flex:1;min-width:0}
+.card-title{font-size:13px;font-weight:500;color:var(--t1);line-height:1.4}
+.card-title.del{text-decoration:line-through;color:var(--t3)}
+.card-meta{display:flex;align-items:center;gap:5px;margin-top:4px;flex-wrap:wrap}
+.card-date{font-size:11px;font-family:var(--mono);color:var(--t3);display:flex;align-items:center;gap:2px}
+.card-date.ov{color:var(--red);font-weight:600}
+.card-date.td{color:var(--amber);font-weight:600}
+.card-date.sn{color:var(--blue)}
+.badge{font-size:10px;padding:2px 6px;border-radius:9px;font-weight:500}
+.b-urg{background:var(--red-l);color:var(--red)}
+.b-imp{background:var(--amber-l);color:var(--amber)}
+.card-note-preview{font-size:11px;color:var(--t3);margin-top:3px;line-height:1.5;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* subtask progress pill on card */
+.sub-pill{font-size:10px;font-family:var(--mono);background:var(--panel2);
+  color:var(--t2);padding:2px 6px;border-radius:9px}
+.sub-pill.done{background:var(--green-l);color:var(--green)}
+
+/* card actions */
+.card-actions{position:absolute;right:7px;top:7px;display:none;gap:3px}
+.card:hover .card-actions{display:flex}
+.ca-btn{width:22px;height:22px;border-radius:4px;border:1px solid var(--b2);background:#fff;
+  cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;transition:background .1s}
+.ca-btn:hover{background:var(--red-l);border-color:var(--red)}
+.ca-btn.expand-btn:hover{background:var(--green-l);border-color:var(--green);color:var(--green)}
+
+/* ── Subtask panel (inline below card) ── */
+.subtask-panel{background:var(--panel2);border:1px solid var(--b);
+  border-top:none;border-radius:0 0 var(--r) var(--r);
+  padding:8px 10px 10px 14px;margin-bottom:6px;display:none}
+.subtask-panel.show{display:block}
+.sub-list{margin-bottom:6px}
+.sub-item{display:flex;align-items:center;gap:7px;padding:4px 0;
+  border-bottom:1px solid var(--b)}
+.sub-item:last-child{border-bottom:none}
+.sub-chk{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--b2);
+  flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  background:transparent;transition:all .1s}
+.sub-chk:hover{border-color:var(--green)}
+.sub-chk.on{background:var(--green);border-color:var(--green)}
+.sub-chk.on::after{content:'';width:6px;height:3.5px;border-left:1.5px solid #fff;
+  border-bottom:1.5px solid #fff;transform:rotate(-45deg) translateY(-.5px);display:block}
+.sub-text{flex:1;font-size:12px;color:var(--t1);line-height:1.4}
+.sub-text.del{text-decoration:line-through;color:var(--t3)}
+.sub-del{width:16px;height:16px;border-radius:3px;border:none;background:transparent;
+  cursor:pointer;font-size:10px;color:var(--t3);display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .1s}
+.sub-item:hover .sub-del{opacity:1}
+.sub-del:hover{color:var(--red)}
+
+.sub-add-row{display:flex;gap:5px;margin-top:4px}
+.sub-add-input{flex:1;height:28px;padding:0 8px;border:1px solid var(--b2);
+  border-radius:var(--rs);font-family:var(--sans);font-size:12px;color:var(--t1);
+  outline:none;background:#fff;transition:border-color .13s}
+.sub-add-input:focus{border-color:var(--green)}
+.sub-add-btn{height:28px;padding:0 10px;border-radius:var(--rs);border:none;
+  background:var(--green);color:#fff;cursor:pointer;font-family:var(--sans);
+  font-size:12px;font-weight:500;white-space:nowrap}
+.sub-add-btn:hover{background:#245030}
+
+/* ════════════════════════════════
+   NOTES VIEW
+════════════════════════════════ */
+.notes-area{flex:1;overflow-y:auto;padding:8px 10px;scrollbar-width:thin;scrollbar-color:var(--b2) transparent;display:none}
+.notes-area.show{display:block}
+.notes-area::-webkit-scrollbar{width:3px}
+.notes-area::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+
+.note-card{background:#fff;border:1px solid var(--b);border-radius:var(--r);
+  padding:12px 13px;margin-bottom:8px;cursor:pointer;position:relative;
+  transition:box-shadow .14s,transform .14s}
+.note-card:hover{box-shadow:0 2px 10px rgba(0,0,0,.09);transform:translateY(-1px)}
+.note-card-title{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.note-card-body{font-size:12px;color:var(--t2);line-height:1.6;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.note-card-date{font-size:10px;color:var(--t3);margin-top:6px;font-family:var(--mono)}
+.note-card-del{position:absolute;right:8px;top:8px;display:none;width:20px;height:20px;
+  border-radius:4px;border:1px solid var(--b2);background:#fff;cursor:pointer;
+  font-size:11px;align-items:center;justify-content:center}
+.note-card:hover .note-card-del{display:flex}
+.note-card-del:hover{background:var(--red-l);border-color:var(--red)}
+
+/* ════════════════════════════════
+   ADD BAR
+════════════════════════════════ */
+.add-bar{padding:9px 12px;border-top:1px solid var(--b);flex-shrink:0;display:flex;gap:6px}
+.add-btn{flex:1;height:37px;border-radius:var(--r);border:1.5px dashed var(--b2);
+  background:transparent;cursor:pointer;font-family:var(--sans);font-size:13px;color:var(--t2);
+  display:flex;align-items:center;justify-content:center;gap:6px;transition:all .14s}
+.add-btn:hover{background:var(--green-l);border-color:var(--green);border-style:solid;color:var(--green)}
+.add-note-btn{width:37px;height:37px;border-radius:var(--r);border:1.5px dashed var(--b2);
+  background:transparent;cursor:pointer;font-size:16px;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;transition:all .14s;color:var(--t2)}
+.add-note-btn:hover{background:var(--amber-l);border-color:var(--amber);border-style:solid}
+.kbd{font-size:10px;color:var(--t3);font-family:var(--mono);background:var(--panel2);
+  padding:2px 5px;border-radius:3px;border:1px solid var(--b2)}
+
+/* ════════════════════════════════
+   OVERLAYS / MODALS
+════════════════════════════════ */
+.overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.3);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .18s}
+.overlay.show{opacity:1;pointer-events:all}
+.modal{background:#fff;border-radius:14px;padding:20px;width:310px;
+  box-shadow:0 8px 32px rgba(0,0,0,.16);
+  transform:scale(.94) translateY(10px);
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+.overlay.show .modal{transform:scale(1) translateY(0)}
+.modal.wide{width:340px}
+
+.m-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.m-title{font-size:15px;font-weight:700}
+.m-x{width:26px;height:26px;border-radius:5px;border:1px solid var(--b2);background:transparent;
+  cursor:pointer;font-size:13px;color:var(--t2);display:flex;align-items:center;justify-content:center}
+.m-x:hover{background:var(--panel2)}
+
+.fg{margin-bottom:10px}
+.flbl{font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:4px;display:block}
+.fi{width:100%;height:33px;padding:0 9px;border:1px solid var(--b2);border-radius:var(--rs);
+  font-family:var(--sans);font-size:13px;color:var(--t1);outline:none;
+  background:var(--panel2);transition:border-color .14s}
+.fi:focus{border-color:var(--green);background:#fff}
+.fi.err{border-color:var(--red)}
+.fi::placeholder{color:var(--t3)}
+textarea.fi{height:80px;padding:7px 9px;resize:none;line-height:1.5}
+textarea.fi.tall{height:140px}
+select.fi{cursor:pointer;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239e9c97'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 9px center;padding-right:26px}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.m-footer{display:flex;gap:7px;margin-top:14px}
+.btn-c{flex:1;height:35px;border-radius:var(--rs);border:1px solid var(--b2);
+  background:transparent;cursor:pointer;font-family:var(--sans);font-size:13px;color:var(--t2)}
+.btn-c:hover{background:var(--panel2)}
+.btn-s{flex:2;height:35px;border-radius:var(--rs);border:none;background:var(--green);
+  color:#fff;cursor:pointer;font-family:var(--sans);font-size:13px;font-weight:600}
+.btn-s:hover{background:#245030}
+.btn-danger{flex:1;height:35px;border-radius:var(--rs);border:none;background:var(--red);
+  color:#fff;cursor:pointer;font-family:var(--sans);font-size:13px;font-weight:600}
+
+/* folder edit modal color dots */
+.color-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.color-dot{width:22px;height:22px;border-radius:50%;cursor:pointer;
+  border:2px solid transparent;transition:transform .12s,border-color .12s}
+.color-dot:hover{transform:scale(1.15)}
+.color-dot.on{border-color:var(--t1)}
+
+/* ════════════════════════════════
+   DARK MODE
+════════════════════════════════ */
+body.dark{
+  --bg:#1c1a17;--panel:#242220;--panel2:#2c2a26;--panel3:#333028;
+  --b:rgba(255,255,255,.07);--b2:rgba(255,255,255,.13);--b3:rgba(255,255,255,.2);
+  --t1:#f0ede6;--t2:#9e9c97;--t3:#6b6860;
+}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- ── Titlebar ── -->
+  <div class="titlebar">
+    <div class="app-name"><img class="app-logo" src="../assets/icon.png" alt="">便 签</div>
+    <div class="tbbtns">
+      <button class="tb" id="btnPin" title="">📌<div class="tb-tip">固定/触边展开</div></button>
+      <button class="tb" id="btnTop">⬆<div class="tb-tip">窗口置顶</div></button>
+      <button class="tb" id="btnStats">📊<div class="tb-tip">统计</div></button>
+      <button class="tb" id="btnDark">🌙<div class="tb-tip">深色模式</div></button>
+      <button class="tb" id="btnMin">✕<div class="tb-tip">收起 (Esc)</div></button>
+    </div>
+  </div>
+
+  <!-- ── View tabs ── -->
+  <div class="view-tabs">
+    <button class="vtab on" id="tabTasks" onclick="switchView('tasks')">☑ 任务</button>
+    <button class="vtab" id="tabNotes" onclick="switchView('notes')">📝 便签</button>
+  </div>
+
+  <!-- ── Search ── -->
+  <div class="search-wrap">
+    <div class="search-inner">
+      <span class="search-ico">🔍</span>
+      <input class="search-input" id="searchInput" placeholder="搜索... (Ctrl+F)" type="text"/>
+    </div>
+  </div>
+
+  <!-- ── Progress (tasks view only) ── -->
+  <div class="prog-wrap" id="progWrap">
+    <div class="prog-row">
+      <span class="prog-lbl">今日进度</span>
+      <span class="prog-pct" id="pPct">—</span>
+    </div>
+    <div class="prog-track"><div class="prog-fill" id="pFill" style="width:0%"></div></div>
+  </div>
+
+  <!-- ── Stats ── -->
+  <div class="stats" id="stats">
+    <div class="stat"><div class="stat-n" id="sAll">0</div><div class="stat-l">全部</div></div>
+    <div class="stat"><div class="stat-n" id="sDone">0</div><div class="stat-l">完成</div></div>
+    <div class="stat"><div class="stat-n" id="sPend">0</div><div class="stat-l">待办</div></div>
+    <div class="stat"><div class="stat-n" id="sUrg">0</div><div class="stat-l">紧急</div></div>
+  </div>
+
+  <!-- ── Folder bar ── -->
+  <div class="folder-bar" id="folderBar"></div>
+
+  <!-- ── Tasks area ── -->
+  <div class="tasks-area" id="tasksArea"></div>
+
+  <!-- ── Notes area ── -->
+  <div class="notes-area" id="notesArea"></div>
+
+  <!-- ── Add bar ── -->
+  <div class="add-bar">
+    <button class="add-btn" id="addBtn">
+      <span style="font-size:18px;font-weight:300;line-height:1">+</span>
+      <span id="addBtnLbl">新增任务</span>
+      <span class="kbd">Ctrl+N</span>
+    </button>
+    <button class="add-note-btn" id="addNoteBtn" title="新建便签">📝</button>
+  </div>
+
+</div><!-- .app -->
+
+<!-- ════ TASK MODAL ════ -->
+<div class="overlay" id="taskOverlay">
+  <div class="modal wide">
+    <div class="m-hd">
+      <div class="m-title" id="taskModalTitle">新增任务</div>
+      <button class="m-x" onclick="closeTaskModal()">✕</button>
+    </div>
+    <div class="fg">
+      <label class="flbl">任务标题 *</label>
+      <input class="fi" id="fTitle" placeholder="输入任务内容..." type="text"/>
+    </div>
+    <div class="fg">
+      <label class="flbl">备注说明</label>
+      <textarea class="fi" id="fNote" placeholder="可选..."></textarea>
+    </div>
+    <div class="frow">
+      <div class="fg">
+        <label class="flbl">文件夹</label>
+        <select class="fi" id="fFolder"></select>
+      </div>
+      <div class="fg">
+        <label class="flbl">优先级</label>
+        <select class="fi" id="fPri">
+          <option value="normal">普通</option>
+          <option value="high">重要 ⭐</option>
+          <option value="urgent">紧急 🔥</option>
+        </select>
+      </div>
+    </div>
+    <div class="frow">
+      <div class="fg">
+        <label class="flbl">截止日期</label>
+        <input class="fi" id="fDate" type="date"/>
+      </div>
+      <div class="fg">
+        <label class="flbl">提醒时间</label>
+        <input class="fi" id="fTime" type="time"/>
+      </div>
+    </div>
+    <div class="m-footer">
+      <button class="btn-c" onclick="closeTaskModal()">取消</button>
+      <button class="btn-s" onclick="saveTask()">保存任务</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ NOTE MODAL ════ -->
+<div class="overlay" id="noteOverlay">
+  <div class="modal wide">
+    <div class="m-hd">
+      <div class="m-title" id="noteModalTitle">新建便签</div>
+      <button class="m-x" onclick="closeNoteModal()">✕</button>
+    </div>
+    <div class="fg">
+      <label class="flbl">标题</label>
+      <input class="fi" id="nTitle" placeholder="便签标题..." type="text"/>
+    </div>
+    <div class="fg">
+      <label class="flbl">内容 *</label>
+      <textarea class="fi tall" id="nBody" placeholder="写下你的想法..."></textarea>
+    </div>
+    <div class="m-footer">
+      <button class="btn-c" onclick="closeNoteModal()">取消</button>
+      <button class="btn-s" onclick="saveNote()">保存便签</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ FOLDER MODAL ════ -->
+<div class="overlay" id="folderOverlay">
+  <div class="modal">
+    <div class="m-hd">
+      <div class="m-title" id="folderModalTitle">新建文件夹</div>
+      <button class="m-x" onclick="closeFolderModal()">✕</button>
+    </div>
+    <div class="fg">
+      <label class="flbl">文件夹名称 *</label>
+      <input class="fi" id="folderName" placeholder="输入名称..." type="text" maxlength="10"/>
+    </div>
+    <div class="fg">
+      <label class="flbl">颜色标识</label>
+      <div class="color-row" id="colorRow"></div>
+    </div>
+    <div class="m-footer" id="folderModalFooter">
+      <button class="btn-c" onclick="closeFolderModal()">取消</button>
+      <button class="btn-s" onclick="saveFolder()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════
+//  CONSTANTS & STATE
+// ════════════════════════════════════════════════
+const FOLDER_COLORS = ['#2d5a3d','#2563a8','#6b4fad','#c4813a','#0f766e','#c0392b','#b45309','#0369a1']
+const DEFAULT_FOLDERS = [
+  {id:'f0', name:'全部',   color:'#2d5a3d', builtIn:true},
+  {id:'f1', name:'工作',   color:'#2563a8', builtIn:false},
+  {id:'f2', name:'生活',   color:'#2d5a3d', builtIn:false},
+  {id:'f3', name:'学习',   color:'#6b4fad', builtIn:false},
+  {id:'f4', name:'购物',   color:'#c4813a', builtIn:false},
+]
+const DEFAULT_TASKS = [
+  {id:1, title:'完成季度报告初稿', note:'包含数据可视化图表', folderId:'f1', priority:'urgent', date:td(1), time:'10:00', done:false, subtasks:[], notified:{}},
+  {id:2, title:'购买生日蛋糕',     note:'草莓口味，8寸',      folderId:'f4', priority:'high',   date:td(0), time:'',     done:false, subtasks:[
+    {id:'s1',text:'确认人数',done:false},{id:'s2',text:'选好蛋糕款式',done:true}
+  ], notified:{}},
+  {id:3, title:'复习 JavaScript 进阶', note:'Promise、async/await', folderId:'f3', priority:'normal', date:td(6), time:'', done:false, subtasks:[], notified:{}},
+  {id:4, title:'跑步 30 分钟', note:'', folderId:'f2', priority:'normal', date:td(0), time:'07:00', done:true, subtasks:[], notified:{}},
+]
+
+let state = { tasks:[], folders:[], notes:[], nextTaskId:5, nextFolderId:5, nextNoteId:1 }
+let curFolder     = 'f0'   // 'f0' = 全部
+let curView       = 'tasks'
+let searchQ       = ''
+let editTaskId    = null
+let editNoteId    = null
+let editFolderId  = null    // null = new, else id = edit
+let expandedCards = new Set()
+let completedOpen = false
+let darkMode      = false
+let statsOpen     = false
+
+// ════════════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════════════
+function td(offset){ const d=new Date(); d.setDate(d.getDate()+offset); return d.toISOString().slice(0,10) }
+function fmtDate(d){ return d.toISOString().slice(0,10) }
+function todayD(){ const d=new Date(); d.setHours(0,0,0,0); return d }
+function daysUntil(ds){ if(!ds)return null; const d=new Date(ds); d.setHours(0,0,0,0); return Math.round((d-todayD())/86400000) }
+function dateLabel(ds){ if(!ds)return ''; const d=daysUntil(ds); if(d<0)return`逾期${Math.abs(d)}天`; if(d===0)return'今天'; if(d===1)return'明天'; if(d<=3)return`${d}天后`; return ds.slice(5).replace('-','/') }
+function dateCls(ds){ if(!ds)return ''; const d=daysUntil(ds); if(d<0)return'ov'; if(d===0)return'td'; if(d<=2)return'sn'; return '' }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function uid(){ return 's'+Date.now()+Math.random().toString(36).slice(2,6) }
+function getFolderById(id){ return state.folders.find(f=>f.id===id) }
+function getFolderColorIdx(folderId){
+  const f = getFolderById(folderId)
+  if(!f) return 0
+  const idx = FOLDER_COLORS.indexOf(f.color)
+  return idx>=0 ? idx : 0
+}
+
+// ════════════════════════════════════════════════
+//  PERSISTENCE
+// ════════════════════════════════════════════════
+async function loadFromDisk(){
+  if(!window.electronAPI){ initDefaults(); return }
+  const d = await window.electronAPI.loadData()
+  if(d && d.tasks && d.folders){
+    state = d
+    // migrate: ensure subtasks & notified fields exist
+    state.tasks.forEach(t=>{ if(!t.subtasks)t.subtasks=[]; if(!t.notified)t.notified={} })
+    if(!state.notes) state.notes = []
+    if(!state.nextNoteId) state.nextNoteId = (state.notes.length||0)+1
+  } else {
+    initDefaults()
+  }
+}
+function initDefaults(){
+  state.folders = JSON.parse(JSON.stringify(DEFAULT_FOLDERS))
+  state.tasks   = JSON.parse(JSON.stringify(DEFAULT_TASKS))
+  state.notes   = []
+  state.nextTaskId   = 5
+  state.nextFolderId = 5
+  state.nextNoteId   = 1
+}
+function saveToDisk(){
+  if(window.electronAPI) window.electronAPI.saveData(state)
+}
+
+// ════════════════════════════════════════════════
+//  RENDER
+// ════════════════════════════════════════════════
+function render(){
+  renderFolderBar()
+  if(curView==='tasks'){ renderTasks(); renderProgress(); renderStats() }
+  else renderNotes()
+  saveToDisk()
+}
+
+/* ── Folder bar ── */
+function renderFolderBar(){
+  const bar = document.getElementById('folderBar')
+  const showFolders = state.folders
+
+  // populate folder <select> in task modal
+  const sel = document.getElementById('fFolder')
+  const prevVal = sel.value
+  sel.innerHTML = state.folders.filter(f=>!f.builtIn).map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('')
+  if(prevVal) sel.value = prevVal
+
+  bar.innerHTML = showFolders.map(f=>{
+    const count = f.builtIn
+      ? state.tasks.length
+      : state.tasks.filter(t=>t.folderId===f.id).length
+    const isOn = f.id===curFolder
+    return `<button class="chip${isOn?' on':''}" style="${isOn?'background:'+f.color+';border-color:'+f.color:''}"
+      onclick="setFolder('${f.id}')"
+      ondblclick="openFolderEdit('${f.id}')"
+      title="双击重命名">
+      ${esc(f.name)} <span class="chip-n">${count}</span>
+    </button>`
+  }).join('') +
+  `<button class="chip-add" onclick="openFolderNew()" title="新建文件夹">+</button>`
+}
+
+/* ── Progress ── */
+function renderProgress(){
+  const ts = fmtDate(new Date())
+  const tts = state.tasks.filter(t=>t.date===ts)
+  if(!tts.length){ document.getElementById('pPct').textContent='今日无任务'; document.getElementById('pFill').style.width='0%'; return }
+  const done=tts.filter(t=>t.done).length
+  const pct=Math.round(done/tts.length*100)
+  document.getElementById('pPct').textContent=pct+'%'
+  document.getElementById('pFill').style.width=pct+'%'
+}
+
+/* ── Stats ── */
+function renderStats(){
+  document.getElementById('sAll').textContent=state.tasks.length
+  document.getElementById('sDone').textContent=state.tasks.filter(t=>t.done).length
+  document.getElementById('sPend').textContent=state.tasks.filter(t=>!t.done).length
+  document.getElementById('sUrg').textContent=state.tasks.filter(t=>!t.done&&t.priority==='urgent').length
+}
+
+/* ── Tasks ── */
+function renderTasks(){
+  const area = document.getElementById('tasksArea')
+  let list = state.tasks
+  if(curFolder!=='f0') list=list.filter(t=>t.folderId===curFolder)
+  if(searchQ){ const q=searchQ.toLowerCase(); list=list.filter(t=>t.title.toLowerCase().includes(q)||(t.note||'').toLowerCase().includes(q)) }
+
+  list=[...list].sort((a,b)=>{
+    const p={urgent:0,high:1,normal:2}
+    const pd=(p[a.priority]||2)-(p[b.priority]||2)
+    if(pd) return pd
+    if(!a.date&&!b.date)return 0; if(!a.date)return 1; if(!b.date)return -1
+    return a.date.localeCompare(b.date)
+  })
+
+  const pend=list.filter(t=>!t.done), done=list.filter(t=>t.done)
+  if(!pend.length&&!done.length){
+    area.innerHTML='<div class="empty">✨<br>暂无任务<br><span style="font-size:11px">点击下方按钮新增</span></div>'
+    return
+  }
+  let html=''
+  if(pend.length) html+=renderGroup('进行中',pend)
+  if(done.length) html+=renderGroup('已完成',done,true)
+  area.innerHTML=html
+}
+
+function renderGroup(lbl,items,foldable=false){
+  if(foldable&&!completedOpen) {
+    return `<div class="grp-lbl fold" onclick="toggleCompletedGroup()">已完成 (${items.length}) ▶</div>`
+  }
+  let h=`<div class="grp-lbl${foldable?' fold':''}"${foldable?' onclick="toggleCompletedGroup()"':''}>${lbl} (${items.length})${foldable?' ▼':''}</div>`
+  for(const t of items){
+    const d=daysUntil(t.date)
+    const isUrg=!t.done&&(t.priority==='urgent'||(d!==null&&d<0))
+    const colorIdx=getFolderColorIdx(t.folderId)
+    const isExp=expandedCards.has(t.id)
+    const subTotal=t.subtasks.length, subDone=t.subtasks.filter(s=>s.done).length
+
+    h+=`<div class="card fc-${colorIdx}${t.done?' done-card':''}${isUrg?' urg-card':''}${isExp?' expanded':''}"
+      onclick="openTaskEdit(${t.id})">
+      <div class="card-actions">
+        <button class="ca-btn expand-btn" onclick="toggleExpand(event,${t.id})" title="${isExp?'收起':'展开'}子任务">
+          ${isExp?'▲':'▼'}
+        </button>
+        <button class="ca-btn" onclick="delTask(event,${t.id})" title="删除">🗑</button>
+      </div>
+      <div class="card-top">
+        <div class="chk${t.done?' on':''}" onclick="toggleDone(event,${t.id})"></div>
+        <div class="card-body">
+          <div class="card-title${t.done?' del':''}">${esc(t.title)}</div>
+          <div class="card-meta">
+            ${t.date?`<div class="card-date ${dateCls(t.date)}">⏰ ${dateLabel(t.date)}${t.time?' · '+t.time:''}</div>`:''}
+            ${t.priority==='urgent'?'<div class="badge b-urg">🔥 紧急</div>':''}
+            ${t.priority==='high'?'<div class="badge b-imp">⭐ 重要</div>':''}
+            ${subTotal?`<div class="sub-pill${subDone===subTotal&&subTotal?' done':''}">${subDone}/${subTotal}</div>`:''}
+          </div>
+          ${t.note?`<div class="card-note-preview">${esc(t.note)}</div>`:''}
+        </div>
+      </div>
+    </div>
+    <div class="subtask-panel${isExp?' show':''}" id="sub-${t.id}">
+      <div class="sub-list" id="sublist-${t.id}">${renderSubtasks(t)}</div>
+      <div class="sub-add-row">
+        <input class="sub-add-input" id="subinput-${t.id}" placeholder="新增子任务..." type="text"
+          onkeydown="if(event.key==='Enter')addSubtask(${t.id})"/>
+        <button class="sub-add-btn" onclick="addSubtask(${t.id})">+ 添加</button>
+      </div>
+    </div>`
+  }
+  return h
+}
+
+function renderSubtasks(t){
+  if(!t.subtasks.length) return '<div style="font-size:12px;color:var(--t3);padding:4px 0">暂无子任务</div>'
+  return t.subtasks.map(s=>`
+    <div class="sub-item">
+      <div class="sub-chk${s.done?' on':''}" onclick="toggleSub(${t.id},'${s.id}')"></div>
+      <div class="sub-text${s.done?' del':''}">${esc(s.text)}</div>
+      <button class="sub-del" onclick="delSub(${t.id},'${s.id}')">✕</button>
+    </div>`).join('')
+}
+
+/* ── Notes ── */
+function renderNotes(){
+  const area=document.getElementById('notesArea')
+  let notes=[...state.notes]
+  if(searchQ){ const q=searchQ.toLowerCase(); notes=notes.filter(n=>n.title.toLowerCase().includes(q)||n.body.toLowerCase().includes(q)) }
+  notes.sort((a,b)=>b.updatedAt-a.updatedAt)
+  if(!notes.length){
+    area.innerHTML='<div class="empty">📝<br>暂无便签<br><span style="font-size:11px">点击下方按钮新建</span></div>'
+    return
+  }
+  area.innerHTML=notes.map(n=>`
+    <div class="note-card" onclick="openNoteEdit(${n.id})">
+      <button class="note-card-del" onclick="delNote(event,${n.id})">🗑</button>
+      <div class="note-card-title">${n.title||'无标题'}</div>
+      <div class="note-card-body">${esc(n.body)}</div>
+      <div class="note-card-date">${new Date(n.updatedAt).toLocaleDateString('zh-CN')}</div>
+    </div>`).join('')
+}
+
+// ════════════════════════════════════════════════
+//  VIEW SWITCH
+// ════════════════════════════════════════════════
+function switchView(v){
+  curView=v
+  document.getElementById('tabTasks').classList.toggle('on',v==='tasks')
+  document.getElementById('tabNotes').classList.toggle('on',v==='notes')
+  document.getElementById('tasksArea').style.display = v==='tasks'?'':'none'
+  document.getElementById('notesArea').classList.toggle('show',v==='notes')
+  document.getElementById('progWrap').style.display  = v==='tasks'?'':'none'
+  document.getElementById('folderBar').style.display = v==='tasks'?'':'none'
+  document.getElementById('stats').style.display     = statsOpen&&v==='tasks'?'flex':'none'
+  document.getElementById('addBtnLbl').textContent   = v==='tasks'?'新增任务':'新建便签'
+  render()
+}
+
+// ════════════════════════════════════════════════
+//  TASK ACTIONS
+// ════════════════════════════════════════════════
+function setFolder(id){ curFolder=id; render() }
+
+function toggleCompletedGroup(){
+  completedOpen=!completedOpen
+  render()
+}
+
+function toggleDone(e,id){
+  e.stopPropagation()
+  const t=state.tasks.find(x=>x.id===id); if(!t) return
+  t.done=!t.done
+  if(t.done) {
+    expandedCards.delete(id)
+    completedOpen=false
+  }
+  if(t.done&&window.electronAPI) window.electronAPI.notify('✔ 完成',`「${t.title.slice(0,20)}」已完成`)
+  render()
+}
+
+function toggleExpand(e,id){
+  e.stopPropagation()
+  if(expandedCards.has(id)) expandedCards.delete(id)
+  else expandedCards.add(id)
+  render()
+}
+
+function toggleSub(taskId,subId){
+  const t=state.tasks.find(x=>x.id===taskId); if(!t)return
+  const s=t.subtasks.find(x=>x.id===subId); if(!s)return
+  s.done=!s.done
+  // re-render just the subtask list inline
+  document.getElementById('sublist-'+taskId).innerHTML=renderSubtasks(t)
+  // update pill
+  const pill=document.querySelector(`[onclick="openTaskEdit(${taskId})"] .sub-pill`)
+  if(pill){ const sub=t.subtasks.length,done=t.subtasks.filter(s=>s.done).length; pill.textContent=`${done}/${sub}`; pill.classList.toggle('done',done===sub&&sub>0) }
+  saveToDisk()
+}
+
+function addSubtask(taskId){
+  const inp=document.getElementById('subinput-'+taskId); if(!inp)return
+  const text=inp.value.trim(); if(!text)return
+  const t=state.tasks.find(x=>x.id===taskId); if(!t)return
+  t.subtasks.push({id:uid(),text,done:false})
+  inp.value=''
+  document.getElementById('sublist-'+taskId).innerHTML=renderSubtasks(t)
+  const pill=document.querySelector(`.card[onclick="openTaskEdit(${taskId})"] .sub-pill`)
+  renderTasks()   // full re-render to update pill
+  saveToDisk()
+}
+
+function delSub(taskId,subId){
+  const t=state.tasks.find(x=>x.id===taskId); if(!t)return
+  t.subtasks=t.subtasks.filter(s=>s.id!==subId)
+  renderTasks(); saveToDisk()
+}
+
+function delTask(e,id){
+  e.stopPropagation()
+  if(!confirm('确定删除这个任务？'))return
+  state.tasks=state.tasks.filter(t=>t.id!==id)
+  expandedCards.delete(id)
+  render()
+}
+
+// ════════════════════════════════════════════════
+//  TASK MODAL
+// ════════════════════════════════════════════════
+function openTaskAdd(){
+  editTaskId=null
+  document.getElementById('taskModalTitle').textContent='新增任务'
+  document.getElementById('fTitle').value=''
+  document.getElementById('fNote').value=''
+  const validFolders=state.folders.filter(f=>!f.builtIn)
+  const sel=document.getElementById('fFolder')
+  sel.innerHTML=validFolders.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('')
+  if(curFolder!=='f0') sel.value=curFolder
+  document.getElementById('fPri').value='normal'
+  document.getElementById('fDate').value=fmtDate(new Date())
+  document.getElementById('fTime').value=''
+  document.getElementById('fTitle').classList.remove('err')
+  document.getElementById('taskOverlay').classList.add('show')
+  setTimeout(()=>document.getElementById('fTitle').focus(),80)
+}
+
+function openTaskEdit(id){
+  const t=state.tasks.find(x=>x.id===id); if(!t)return
+  editTaskId=id
+  document.getElementById('taskModalTitle').textContent='编辑任务'
+  document.getElementById('fTitle').value=t.title
+  document.getElementById('fNote').value=t.note||''
+  const validFolders=state.folders.filter(f=>!f.builtIn)
+  const sel=document.getElementById('fFolder')
+  sel.innerHTML=validFolders.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('')
+  sel.value=t.folderId
+  document.getElementById('fPri').value=t.priority
+  document.getElementById('fDate').value=t.date||''
+  document.getElementById('fTime').value=t.time||''
+  document.getElementById('fTitle').classList.remove('err')
+  document.getElementById('taskOverlay').classList.add('show')
+  setTimeout(()=>document.getElementById('fTitle').focus(),80)
+}
+
+function closeTaskModal(){ document.getElementById('taskOverlay').classList.remove('show') }
+
+function saveTask(){
+  const title=document.getElementById('fTitle').value.trim()
+  if(!title){ document.getElementById('fTitle').classList.add('err'); document.getElementById('fTitle').focus(); return }
+  const folderId=document.getElementById('fFolder').value || (state.folders.find(f=>!f.builtIn)||{id:'f1'}).id
+  const data={title,note:document.getElementById('fNote').value.trim(),folderId,priority:document.getElementById('fPri').value,date:document.getElementById('fDate').value,time:document.getElementById('fTime').value}
+  if(editTaskId){
+    const i=state.tasks.findIndex(t=>t.id===editTaskId)
+    if(i>=0) state.tasks[i]={...state.tasks[i],...data}
+  } else {
+    state.tasks.push({id:state.nextTaskId++,...data,done:false,subtasks:[],notified:{}})
+  }
+  closeTaskModal(); render()
+}
+
+// ════════════════════════════════════════════════
+//  NOTE MODAL
+// ════════════════════════════════════════════════
+function openNoteAdd(){
+  editNoteId=null
+  document.getElementById('noteModalTitle').textContent='新建便签'
+  document.getElementById('nTitle').value=''
+  document.getElementById('nBody').value=''
+  document.getElementById('noteOverlay').classList.add('show')
+  setTimeout(()=>document.getElementById('nBody').focus(),80)
+}
+
+function openNoteEdit(id){
+  const n=state.notes.find(x=>x.id===id); if(!n)return
+  editNoteId=id
+  document.getElementById('noteModalTitle').textContent='编辑便签'
+  document.getElementById('nTitle').value=n.title||''
+  document.getElementById('nBody').value=n.body||''
+  document.getElementById('noteOverlay').classList.add('show')
+  setTimeout(()=>document.getElementById('nBody').focus(),80)
+}
+
+function closeNoteModal(){ document.getElementById('noteOverlay').classList.remove('show') }
+
+function saveNote(){
+  const body=document.getElementById('nBody').value.trim()
+  if(!body)return
+  const now=Date.now()
+  if(editNoteId){
+    const i=state.notes.findIndex(n=>n.id===editNoteId)
+    if(i>=0){ state.notes[i].title=document.getElementById('nTitle').value.trim(); state.notes[i].body=body; state.notes[i].updatedAt=now }
+  } else {
+    state.notes.push({id:state.nextNoteId++,title:document.getElementById('nTitle').value.trim(),body,createdAt:now,updatedAt:now})
+  }
+  closeNoteModal(); render()
+}
+
+function delNote(e,id){
+  e.stopPropagation()
+  if(!confirm('确定删除这个便签？'))return
+  state.notes=state.notes.filter(n=>n.id!==id); render()
+}
+
+// ════════════════════════════════════════════════
+//  FOLDER MODAL
+// ════════════════════════════════════════════════
+const FOLDER_COLOR_LABELS = FOLDER_COLORS
+
+function buildColorRow(selectedColor){
+  const row=document.getElementById('colorRow')
+  row.innerHTML=FOLDER_COLORS.map(c=>`
+    <div class="color-dot${selectedColor===c?' on':''}"
+      style="background:${c}" onclick="selectFolderColor('${c}')" title="${c}"></div>`).join('')
+}
+let pendingFolderColor = FOLDER_COLORS[0]
+
+function selectFolderColor(c){
+  pendingFolderColor=c
+  document.querySelectorAll('.color-dot').forEach(d=>d.classList.toggle('on',d.style.background===c||d.style.backgroundColor===c))
+}
+
+function openFolderNew(){
+  editFolderId=null
+  pendingFolderColor=FOLDER_COLORS[1]
+  document.getElementById('folderModalTitle').textContent='新建文件夹'
+  document.getElementById('folderName').value=''
+  buildColorRow(pendingFolderColor)
+  // footer: cancel + save only
+  document.getElementById('folderModalFooter').innerHTML=`
+    <button class="btn-c" onclick="closeFolderModal()">取消</button>
+    <button class="btn-s" onclick="saveFolder()">保存</button>`
+  document.getElementById('folderOverlay').classList.add('show')
+  setTimeout(()=>document.getElementById('folderName').focus(),80)
+}
+
+function openFolderEdit(id){
+  const f=getFolderById(id); if(!f||f.builtIn)return
+  editFolderId=id
+  pendingFolderColor=f.color
+  document.getElementById('folderModalTitle').textContent='编辑文件夹'
+  document.getElementById('folderName').value=f.name
+  buildColorRow(f.color)
+  document.getElementById('folderModalFooter').innerHTML=`
+    <button class="btn-danger" onclick="deleteFolder('${id}')">删除</button>
+    <button class="btn-c" onclick="closeFolderModal()">取消</button>
+    <button class="btn-s" onclick="saveFolder()">保存</button>`
+  document.getElementById('folderOverlay').classList.add('show')
+  setTimeout(()=>document.getElementById('folderName').focus(),80)
+}
+
+function closeFolderModal(){ document.getElementById('folderOverlay').classList.remove('show') }
+
+function saveFolder(){
+  const name=document.getElementById('folderName').value.trim()
+  if(!name)return
+  if(editFolderId){
+    const f=getFolderById(editFolderId); if(f){ f.name=name; f.color=pendingFolderColor }
+  } else {
+    state.folders.push({id:'f'+(state.nextFolderId++),name,color:pendingFolderColor,builtIn:false})
+  }
+  closeFolderModal(); render()
+}
+
+function deleteFolder(id){
+  if(!confirm('删除文件夹后，该文件夹下的任务将移至「工作」。确定？'))return
+  const fallback=state.folders.find(f=>!f.builtIn&&f.id!==id)
+  if(fallback) state.tasks.filter(t=>t.folderId===id).forEach(t=>t.folderId=fallback.id)
+  state.folders=state.folders.filter(f=>f.id!==id)
+  if(curFolder===id) curFolder='f0'
+  closeFolderModal(); render()
+}
+
+// ════════════════════════════════════════════════
+//  REMINDERS
+// ════════════════════════════════════════════════
+function checkReminders(){
+  const now=new Date()
+  const todayStr=fmtDate(now)
+  const nowTime=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')
+  state.tasks.forEach(t=>{
+    if(t.done) return
+    if(!t.notified) t.notified={}
+    if(t.date&&t.time&&t.date===todayStr&&t.time===nowTime&&!t.notified.ontime){
+      t.notified.ontime=true
+      if(window.electronAPI) window.electronAPI.notify('🔔 提醒时间到',`「${t.title.slice(0,20)}」`)
+    }
+    if(t.date){
+      const d=daysUntil(t.date)
+      if(d===0&&!t.notified.d0){ t.notified.d0=true; if(window.electronAPI) window.electronAPI.notify('⏰ 今日截止',`「${t.title.slice(0,20)}」今天到期！`) }
+      if(d===1&&!t.notified.d1){ t.notified.d1=true; if(window.electronAPI) window.electronAPI.notify('⏰ 明日截止',`「${t.title.slice(0,20)}」明天到期。`) }
+    }
+  })
+  saveToDisk()
+}
+
+// ════════════════════════════════════════════════
+//  UI BINDINGS
+// ════════════════════════════════════════════════
+// add buttons
+document.getElementById('addBtn').addEventListener('click',()=>{ curView==='tasks'?openTaskAdd():openNoteAdd() })
+document.getElementById('addNoteBtn').addEventListener('click',openNoteAdd)
+
+// modal close on overlay click
+document.getElementById('taskOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget)closeTaskModal() })
+document.getElementById('noteOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget)closeNoteModal() })
+document.getElementById('folderOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget)closeFolderModal() })
+
+// Enter to save
+document.getElementById('fTitle').addEventListener('keydown',e=>{ if(e.key==='Enter')saveTask() })
+document.getElementById('nBody').addEventListener('keydown',e=>{ if(e.ctrlKey&&e.key==='Enter')saveNote() })
+
+// search
+document.getElementById('searchInput').addEventListener('input',e=>{ searchQ=e.target.value.trim(); render() })
+
+// stats
+document.getElementById('btnStats').addEventListener('click',()=>{
+  statsOpen=!statsOpen
+  document.getElementById('stats').classList.toggle('show',statsOpen&&curView==='tasks')
+  renderStats()
+})
+
+// dark mode
+document.getElementById('btnDark').addEventListener('click',()=>{
+  darkMode=!darkMode
+  document.body.classList.toggle('dark',darkMode)
+  document.getElementById('btnDark').textContent=darkMode?'☀️':'🌙'
+  localStorage.setItem('dark',darkMode?'1':'0')
+})
+
+// minimize / collapse
+document.getElementById('btnMin').addEventListener('click',()=>{
+  if(window.electronAPI) window.electronAPI.minimize()
+})
+
+// pin
+document.getElementById('btnPin').addEventListener('click',async()=>{
+  if(!window.electronAPI) return
+  const r=await window.electronAPI.togglePin()
+  document.getElementById('btnPin').classList.toggle('on',r.pinned)
+})
+
+// always on top
+document.getElementById('btnTop').addEventListener('click',async()=>{
+  if(!window.electronAPI) return
+  const r=await window.electronAPI.toggleTop()
+  document.getElementById('btnTop').classList.toggle('on',r.alwaysOnTop)
+})
+
+// keyboard shortcuts
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='n'){ e.preventDefault(); curView==='tasks'?openTaskAdd():openNoteAdd() }
+  if((e.ctrlKey||e.metaKey)&&e.key==='f'){ e.preventDefault(); document.getElementById('searchInput').focus() }
+  if(e.key==='Escape'){ closeTaskModal(); closeNoteModal(); closeFolderModal() }
+})
+
+// Electron panel state events
+if(window.electronAPI){
+  window.electronAPI.onPanelState(v=>{ document.body.classList.toggle('collapsed',!v.expanded) })
+  window.electronAPI.onPinState(v=>{ document.getElementById('btnPin').classList.toggle('on',v.pinned) })
+}
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+async function init(){
+  await loadFromDisk()
+  if(localStorage.getItem('dark')==='1'){ darkMode=true; document.body.classList.add('dark'); document.getElementById('btnDark').textContent='☀️' }
+  if(window.electronAPI){
+    const s=await window.electronAPI.getState()
+    document.getElementById('btnPin').classList.toggle('on',s.pinned)
+    document.getElementById('btnTop').classList.toggle('on',s.alwaysOnTop)
+  }
+  render()
+  checkReminders()
+  setInterval(checkReminders,30000)
+}
+
+init()
+</script>
+</body>
+</html>
