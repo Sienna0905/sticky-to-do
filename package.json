@@ -1,6 +1,6 @@
 {
   "name": "sticky-todo",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "桌面侧边便签待办",
   "main": "main.js",
   "scripts": {
@@ -18,8 +18,12 @@
   "build": {
     "appId": "com.stickytodo.app",
     "productName": "便签",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "win": {
-      "target": "nsis",
+      "target": [
+        "nsis",
+        "zip"
+      ],
       "icon": "assets/icon.ico"
     },
     "publish": [
