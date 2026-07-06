@@ -27,12 +27,14 @@ let isPinned    = true
 let isExpanded  = true
 let alwaysOnTop = false
 let edgeTopActive = false
+let edgeHoverStartedAt = 0
 let updateCheckTimer = null
 
 const PANEL_WIDTH     = 360
 const COLLAPSED_WIDTH = 8
-const EDGE_DETECT_WIDTH = 14
+const EDGE_DETECT_WIDTH = 4
 const EDGE_DETECT_INTERVAL = 80
+const EDGE_DETECT_DWELL_MS = 500
 const ICON_PATH = path.join(__dirname, 'assets', 'icon.png')
 
 // ── 内嵌托盘图标（32×32 绿色，无需外部文件）─────
@@ -119,7 +121,15 @@ function startEdgeDetect() {
     if (!safeWin() || isPinned) return
     const { width: sw } = screen.getPrimaryDisplay().workAreaSize
     const cur = screen.getCursorScreenPoint()
-    if (cur.x >= sw - EDGE_DETECT_WIDTH && !isExpanded) showWindow({ edgeTriggered: true })
+    if (cur.x < sw - EDGE_DETECT_WIDTH || isExpanded) {
+      edgeHoverStartedAt = 0
+      return
+    }
+    if (!edgeHoverStartedAt) edgeHoverStartedAt = Date.now()
+    if (Date.now() - edgeHoverStartedAt >= EDGE_DETECT_DWELL_MS) {
+      showWindow({ edgeTriggered: true })
+      edgeHoverStartedAt = 0
+    }
   }, EDGE_DETECT_INTERVAL)
 }
 

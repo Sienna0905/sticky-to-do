@@ -17,14 +17,14 @@
   --blue:#2563a8;--blue-l:#e8f0fa;
   --purple:#6b4fad;--purple-l:#f0ecfa;
   --teal:#0f766e;--teal-l:#e0f2f0;
-  --r:10px;--rs:6px;
+  --r:10px;--rs:6px;--app-font-size:14px;
   --sans:'Noto Sans SC',sans-serif;
   --mono:'JetBrains Mono',monospace;
   --sidebar-w:360px;
 }
 
 html,body{height:100%;overflow:hidden}
-body{font-family:var(--sans);background:var(--bg);color:var(--t1);font-size:14px;user-select:none}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);font-size:var(--app-font-size);user-select:none}
 
 /* ════════════════════════════════
    LAYOUT
@@ -56,6 +56,7 @@ body.collapsed .app{transform:translateX(calc(var(--sidebar-w) - 8px))}
   background:var(--t1);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;
   white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s;z-index:99}
 .tb:hover .tb-tip{opacity:1}
+.font-size-btn{font-weight:700;font-size:11px}
 
 /* ════════════════════════════════
    VIEW SWITCHER (tasks / notes)
@@ -234,6 +235,10 @@ body.collapsed .app{transform:translateX(calc(var(--sidebar-w) - 8px))}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .note-card-body{font-size:12px;color:var(--t2);line-height:1.6;
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.note-card-body b,.note-card-body strong{font-weight:700}
+.note-card-body i,.note-card-body em{font-style:italic}
+.note-card-body u{text-decoration:underline}
+.note-card-body ul,.note-card-body ol{padding-left:18px}
 .note-card-date{font-size:10px;color:var(--t3);margin-top:6px;font-family:var(--mono)}
 .note-card-del{position:absolute;right:8px;top:8px;display:none;width:20px;height:20px;
   border-radius:4px;border:1px solid var(--b2);background:#fff;cursor:pointer;
@@ -287,6 +292,16 @@ body.collapsed .app{transform:translateX(calc(var(--sidebar-w) - 8px))}
 .fi::placeholder{color:var(--t3)}
 textarea.fi{height:80px;padding:7px 9px;resize:none;line-height:1.5}
 textarea.fi.tall{height:140px}
+.rich-toolbar{display:flex;gap:4px;margin-bottom:6px}
+.fmt-btn{width:28px;height:26px;border-radius:var(--rs);border:1px solid var(--b2);background:var(--panel2);
+  cursor:pointer;font-family:var(--sans);font-size:12px;font-weight:700;color:var(--t2)}
+.fmt-btn:hover{background:var(--green-l);color:var(--green);border-color:rgba(45,90,61,.25)}
+.rich-editor{width:100%;height:150px;padding:7px 9px;border:1px solid var(--b2);border-radius:var(--rs);
+  font-family:var(--sans);font-size:13px;color:var(--t1);outline:none;background:var(--panel2);
+  overflow-y:auto;line-height:1.5;user-select:text}
+.rich-editor:focus{border-color:var(--green);background:#fff}
+.rich-editor:empty::before{content:attr(data-placeholder);color:var(--t3)}
+.rich-editor ul,.rich-editor ol{padding-left:20px}
 select.fi{cursor:pointer;appearance:none;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239e9c97'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 9px center;padding-right:26px}
@@ -300,6 +315,10 @@ select.fi{cursor:pointer;appearance:none;
 .btn-s:hover{background:#245030}
 .btn-danger{flex:1;height:35px;border-radius:var(--rs);border:none;background:var(--red);
   color:#fff;cursor:pointer;font-family:var(--sans);font-size:13px;font-weight:600}
+
+.card-title,.note-card-title,.add-btn,.fi,.search-input,.rich-editor{font-size:calc(var(--app-font-size) - 1px)}
+.card-note-preview,.card-date,.note-card-body,.sub-text{font-size:calc(var(--app-font-size) - 2px)}
+.stat-n{font-size:calc(var(--app-font-size) + 3px)}
 
 /* folder edit modal color dots */
 .color-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
@@ -329,6 +348,8 @@ body.dark{
       <button class="tb" id="btnPin" title="">📌<div class="tb-tip">固定/触边展开</div></button>
       <button class="tb" id="btnTop">⬆<div class="tb-tip">窗口置顶</div></button>
       <button class="tb" id="btnStats">📊<div class="tb-tip">统计</div></button>
+      <button class="tb font-size-btn" id="btnFontDown">A-<div class="tb-tip">缩小字体</div></button>
+      <button class="tb font-size-btn" id="btnFontUp">A+<div class="tb-tip">放大字体</div></button>
       <button class="tb" id="btnDark">🌙<div class="tb-tip">深色模式</div></button>
       <button class="tb" id="btnMin">✕<div class="tb-tip">收起 (Esc)</div></button>
     </div>
@@ -425,6 +446,15 @@ body.dark{
         <input class="fi" id="fTime" type="time"/>
       </div>
     </div>
+    <div class="fg">
+      <label class="flbl">重复</label>
+      <select class="fi" id="fRepeat">
+        <option value="none">不重复</option>
+        <option value="daily">每天</option>
+        <option value="weekly">每周</option>
+        <option value="monthly">每月</option>
+      </select>
+    </div>
     <div class="m-footer">
       <button class="btn-c" onclick="closeTaskModal()">取消</button>
       <button class="btn-s" onclick="saveTask()">保存任务</button>
@@ -445,7 +475,14 @@ body.dark{
     </div>
     <div class="fg">
       <label class="flbl">内容 *</label>
-      <textarea class="fi tall" id="nBody" placeholder="写下你的想法..."></textarea>
+      <div class="rich-toolbar">
+        <button class="fmt-btn" type="button" onclick="formatNote('bold')" title="加粗">B</button>
+        <button class="fmt-btn" type="button" onclick="formatNote('italic')" title="斜体"><i>I</i></button>
+        <button class="fmt-btn" type="button" onclick="formatNote('underline')" title="下划线"><u>U</u></button>
+        <button class="fmt-btn" type="button" onclick="formatNote('insertUnorderedList')" title="项目符号">•</button>
+        <button class="fmt-btn" type="button" onclick="formatNote('insertOrderedList')" title="编号列表">1.</button>
+      </div>
+      <div class="rich-editor" id="nBody" contenteditable="true" data-placeholder="写下你的想法..."></div>
     </div>
     <div class="m-footer">
       <button class="btn-c" onclick="closeNoteModal()">取消</button>
@@ -497,7 +534,7 @@ const DEFAULT_TASKS = [
   {id:4, title:'跑步 30 分钟', note:'', folderId:'f2', priority:'normal', date:td(0), time:'07:00', done:true, subtasks:[], notified:{}},
 ]
 
-let state = { tasks:[], folders:[], notes:[], nextTaskId:5, nextFolderId:5, nextNoteId:1 }
+let state = { tasks:[], folders:[], notes:[], nextTaskId:5, nextFolderId:5, nextNoteId:1, settings:{fontSize:14} }
 let curFolder     = 'f0'   // 'f0' = 全部
 let curView       = 'tasks'
 let searchQ       = ''
@@ -520,6 +557,37 @@ function dateLabel(ds){ if(!ds)return ''; const d=daysUntil(ds); if(d<0)return`�
 function dateCls(ds){ if(!ds)return ''; const d=daysUntil(ds); if(d<0)return'ov'; if(d===0)return'td'; if(d<=2)return'sn'; return '' }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
 function uid(){ return 's'+Date.now()+Math.random().toString(36).slice(2,6) }
+function noteText(html){
+  const div=document.createElement('div')
+  div.innerHTML=html||''
+  return div.textContent.trim()
+}
+function cleanNoteHtml(html){
+  const allowed=new Set(['B','STRONG','I','EM','U','UL','OL','LI','BR','DIV','P'])
+  const tpl=document.createElement('template')
+  tpl.innerHTML=html||''
+  tpl.content.querySelectorAll('*').forEach(el=>{
+    if(!allowed.has(el.tagName)){
+      el.replaceWith(...Array.from(el.childNodes))
+      return
+    }
+    Array.from(el.attributes).forEach(a=>el.removeAttribute(a.name))
+  })
+  return tpl.innerHTML.trim()
+}
+function repeatLabel(v){ return ({daily:'每天',weekly:'每周',monthly:'每月'})[v]||'' }
+function nextRepeatDate(ds,repeat){
+  if(!ds||repeat==='none') return ''
+  const d=new Date(ds+'T00:00:00')
+  if(repeat==='daily') d.setDate(d.getDate()+1)
+  if(repeat==='weekly') d.setDate(d.getDate()+7)
+  if(repeat==='monthly') d.setMonth(d.getMonth()+1)
+  return fmtDate(d)
+}
+function applyFontSize(){
+  const size=Math.min(18,Math.max(12,state.settings?.fontSize||14))
+  document.documentElement.style.setProperty('--app-font-size',size+'px')
+}
 function getFolderById(id){ return state.folders.find(f=>f.id===id) }
 function getFolderColorIdx(folderId){
   const f = getFolderById(folderId)
@@ -537,8 +605,11 @@ async function loadFromDisk(){
   if(d && d.tasks && d.folders){
     state = d
     // migrate: ensure subtasks & notified fields exist
-    state.tasks.forEach(t=>{ if(!t.subtasks)t.subtasks=[]; if(!t.notified)t.notified={} })
+    state.tasks.forEach(t=>{ if(!t.subtasks)t.subtasks=[]; if(!t.notified)t.notified={}; if(!t.repeat)t.repeat='none' })
     if(!state.notes) state.notes = []
+    state.notes.forEach(n=>{ if(!n.bodyHtml)n.bodyHtml=esc(n.body||'').replace(/\n/g,'<br>') })
+    if(!state.settings) state.settings={fontSize:14}
+    if(!state.settings.fontSize) state.settings.fontSize=14
     if(!state.nextNoteId) state.nextNoteId = (state.notes.length||0)+1
   } else {
     initDefaults()
@@ -548,12 +619,20 @@ function initDefaults(){
   state.folders = JSON.parse(JSON.stringify(DEFAULT_FOLDERS))
   state.tasks   = JSON.parse(JSON.stringify(DEFAULT_TASKS))
   state.notes   = []
+  state.settings = {fontSize:14}
   state.nextTaskId   = 5
   state.nextFolderId = 5
   state.nextNoteId   = 1
 }
 function saveToDisk(){
   if(window.electronAPI) window.electronAPI.saveData(state)
+}
+
+function changeFontSize(delta){
+  if(!state.settings) state.settings={fontSize:14}
+  state.settings.fontSize=Math.min(18,Math.max(12,(state.settings.fontSize||14)+delta))
+  applyFontSize()
+  saveToDisk()
 }
 
 // ════════════════════════════════════════════════
@@ -665,6 +744,7 @@ function renderGroup(lbl,items,foldable=false){
             ${t.date?`<div class="card-date ${dateCls(t.date)}">⏰ ${dateLabel(t.date)}${t.time?' · '+t.time:''}</div>`:''}
             ${t.priority==='urgent'?'<div class="badge b-urg">🔥 紧急</div>':''}
             ${t.priority==='high'?'<div class="badge b-imp">⭐ 重要</div>':''}
+            ${t.repeat&&t.repeat!=='none'?`<div class="badge">${repeatLabel(t.repeat)}</div>`:''}
             ${subTotal?`<div class="sub-pill${subDone===subTotal&&subTotal?' done':''}">${subDone}/${subTotal}</div>`:''}
           </div>
           ${t.note?`<div class="card-note-preview">${esc(t.note)}</div>`:''}
@@ -707,7 +787,7 @@ function renderNotes(){
     <div class="note-card" onclick="openNoteEdit(${n.id})">
       <button class="note-card-del" onclick="delNote(event,${n.id})">🗑</button>
       <div class="note-card-title">${n.title||'无标题'}</div>
-      <div class="note-card-body">${esc(n.body)}</div>
+      <div class="note-card-body">${cleanNoteHtml(n.bodyHtml||esc(n.body||''))}</div>
       <div class="note-card-date">${new Date(n.updatedAt).toLocaleDateString('zh-CN')}</div>
     </div>`).join('')
 }
@@ -742,6 +822,17 @@ function toggleDone(e,id){
   e.stopPropagation()
   const t=state.tasks.find(x=>x.id===id); if(!t) return
   t.done=!t.done
+  if(t.done&&t.repeat&&t.repeat!=='none'&&t.date){
+    const nextDate=nextRepeatDate(t.date,t.repeat)
+    t.date=nextDate
+    t.done=false
+    t.notified={}
+    expandedCards.delete(id)
+    completedOpen=false
+    if(window.electronAPI) window.electronAPI.notify('已安排下次提醒',`「${t.title.slice(0,20)}」下次：${nextDate}`)
+    render()
+    return
+  }
   if(t.done) {
     expandedCards.delete(id)
     completedOpen=false
@@ -810,6 +901,7 @@ function openTaskAdd(){
   document.getElementById('fPri').value='normal'
   document.getElementById('fDate').value=fmtDate(new Date())
   document.getElementById('fTime').value=''
+  document.getElementById('fRepeat').value='none'
   document.getElementById('fTitle').classList.remove('err')
   document.getElementById('taskOverlay').classList.add('show')
   setTimeout(()=>document.getElementById('fTitle').focus(),80)
@@ -828,6 +920,7 @@ function openTaskEdit(id){
   document.getElementById('fPri').value=t.priority
   document.getElementById('fDate').value=t.date||''
   document.getElementById('fTime').value=t.time||''
+  document.getElementById('fRepeat').value=t.repeat||'none'
   document.getElementById('fTitle').classList.remove('err')
   document.getElementById('taskOverlay').classList.add('show')
   setTimeout(()=>document.getElementById('fTitle').focus(),80)
@@ -839,7 +932,7 @@ function saveTask(){
   const title=document.getElementById('fTitle').value.trim()
   if(!title){ document.getElementById('fTitle').classList.add('err'); document.getElementById('fTitle').focus(); return }
   const folderId=document.getElementById('fFolder').value || (state.folders.find(f=>!f.builtIn)||{id:'f1'}).id
-  const data={title,note:document.getElementById('fNote').value.trim(),folderId,priority:document.getElementById('fPri').value,date:document.getElementById('fDate').value,time:document.getElementById('fTime').value}
+  const data={title,note:document.getElementById('fNote').value.trim(),folderId,priority:document.getElementById('fPri').value,date:document.getElementById('fDate').value,time:document.getElementById('fTime').value,repeat:document.getElementById('fRepeat').value}
   if(editTaskId){
     const i=state.tasks.findIndex(t=>t.id===editTaskId)
     if(i>=0) state.tasks[i]={...state.tasks[i],...data}
@@ -856,7 +949,7 @@ function openNoteAdd(){
   editNoteId=null
   document.getElementById('noteModalTitle').textContent='新建便签'
   document.getElementById('nTitle').value=''
-  document.getElementById('nBody').value=''
+  document.getElementById('nBody').innerHTML=''
   document.getElementById('noteOverlay').classList.add('show')
   setTimeout(()=>document.getElementById('nBody').focus(),80)
 }
@@ -866,22 +959,29 @@ function openNoteEdit(id){
   editNoteId=id
   document.getElementById('noteModalTitle').textContent='编辑便签'
   document.getElementById('nTitle').value=n.title||''
-  document.getElementById('nBody').value=n.body||''
+  document.getElementById('nBody').innerHTML=cleanNoteHtml(n.bodyHtml||esc(n.body||'').replace(/\n/g,'<br>'))
   document.getElementById('noteOverlay').classList.add('show')
   setTimeout(()=>document.getElementById('nBody').focus(),80)
 }
 
 function closeNoteModal(){ document.getElementById('noteOverlay').classList.remove('show') }
 
+function formatNote(command){
+  const editor=document.getElementById('nBody')
+  editor.focus()
+  document.execCommand(command,false,null)
+}
+
 function saveNote(){
-  const body=document.getElementById('nBody').value.trim()
+  const bodyHtml=cleanNoteHtml(document.getElementById('nBody').innerHTML)
+  const body=noteText(bodyHtml)
   if(!body)return
   const now=Date.now()
   if(editNoteId){
     const i=state.notes.findIndex(n=>n.id===editNoteId)
-    if(i>=0){ state.notes[i].title=document.getElementById('nTitle').value.trim(); state.notes[i].body=body; state.notes[i].updatedAt=now }
+    if(i>=0){ state.notes[i].title=document.getElementById('nTitle').value.trim(); state.notes[i].body=body; state.notes[i].bodyHtml=bodyHtml; state.notes[i].updatedAt=now }
   } else {
-    state.notes.push({id:state.nextNoteId++,title:document.getElementById('nTitle').value.trim(),body,createdAt:now,updatedAt:now})
+    state.notes.push({id:state.nextNoteId++,title:document.getElementById('nTitle').value.trim(),body,bodyHtml,createdAt:now,updatedAt:now})
   }
   closeNoteModal(); render()
 }
@@ -1010,6 +1110,9 @@ document.getElementById('btnStats').addEventListener('click',()=>{
   renderStats()
 })
 
+document.getElementById('btnFontDown').addEventListener('click',()=>changeFontSize(-1))
+document.getElementById('btnFontUp').addEventListener('click',()=>changeFontSize(1))
+
 // dark mode
 document.getElementById('btnDark').addEventListener('click',()=>{
   darkMode=!darkMode
@@ -1055,6 +1158,7 @@ if(window.electronAPI){
 // ════════════════════════════════════════════════
 async function init(){
   await loadFromDisk()
+  applyFontSize()
   if(localStorage.getItem('dark')==='1'){ darkMode=true; document.body.classList.add('dark'); document.getElementById('btnDark').textContent='☀️' }
   if(window.electronAPI){
     const s=await window.electronAPI.getState()

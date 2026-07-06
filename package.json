@@ -1,6 +1,6 @@
 {
   "name": "sticky-todo",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "桌面侧边便签待办",
   "main": "main.js",
   "scripts": {
