@@ -474,6 +474,10 @@ body.dark{
       <input class="fi" id="nTitle" placeholder="便签标题..." type="text"/>
     </div>
     <div class="fg">
+      <label class="flbl">文件夹</label>
+      <select class="fi" id="nFolder"></select>
+    </div>
+    <div class="fg">
       <label class="flbl">内容 *</label>
       <div class="rich-toolbar">
         <button class="fmt-btn" type="button" onclick="formatNote('bold')" title="加粗">B</button>
@@ -607,7 +611,10 @@ async function loadFromDisk(){
     // migrate: ensure subtasks & notified fields exist
     state.tasks.forEach(t=>{ if(!t.subtasks)t.subtasks=[]; if(!t.notified)t.notified={}; if(!t.repeat)t.repeat='none' })
     if(!state.notes) state.notes = []
-    state.notes.forEach(n=>{ if(!n.bodyHtml)n.bodyHtml=esc(n.body||'').replace(/\n/g,'<br>') })
+    state.notes.forEach(n=>{
+      if(!n.bodyHtml)n.bodyHtml=esc(n.body||'').replace(/\n/g,'<br>')
+      if(!n.folderId)n.folderId=(state.folders.find(f=>!f.builtIn)||{id:'f1'}).id
+    })
     if(!state.settings) state.settings={fontSize:14}
     if(!state.settings.fontSize) state.settings.fontSize=14
     if(!state.nextNoteId) state.nextNoteId = (state.notes.length||0)+1
@@ -650,16 +657,20 @@ function renderFolderBar(){
   const bar = document.getElementById('folderBar')
   const showFolders = state.folders
 
-  // populate folder <select> in task modal
+  // populate folder <select> in task and note modals
   const sel = document.getElementById('fFolder')
   const prevVal = sel.value
   sel.innerHTML = state.folders.filter(f=>!f.builtIn).map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('')
   if(prevVal) sel.value = prevVal
+  const noteSel = document.getElementById('nFolder')
+  const prevNoteVal = noteSel.value
+  noteSel.innerHTML = state.folders.filter(f=>!f.builtIn).map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('')
+  if(prevNoteVal) noteSel.value = prevNoteVal
 
   bar.innerHTML = showFolders.map(f=>{
     const count = f.builtIn
-      ? state.tasks.length
-      : state.tasks.filter(t=>t.folderId===f.id).length
+      ? (curView==='notes' ? state.notes.length : state.tasks.length)
+      : (curView==='notes' ? state.notes.filter(n=>n.folderId===f.id).length : state.tasks.filter(t=>t.folderId===f.id).length)
     const isOn = f.id===curFolder
     return `<button class="chip${isOn?' on':''}" style="${isOn?'background:'+f.color+';border-color:'+f.color:''}"
       onclick="setFolder('${f.id}')"
@@ -777,6 +788,7 @@ function renderSubtasks(t){
 function renderNotes(){
   const area=document.getElementById('notesArea')
   let notes=[...state.notes]
+  if(curFolder!=='f0') notes=notes.filter(n=>n.folderId===curFolder)
   if(searchQ){ const q=searchQ.toLowerCase(); notes=notes.filter(n=>n.title.toLowerCase().includes(q)||n.body.toLowerCase().includes(q)) }
   notes.sort((a,b)=>b.updatedAt-a.updatedAt)
   if(!notes.length){
@@ -802,7 +814,7 @@ function switchView(v){
   document.getElementById('tasksArea').style.display = v==='tasks'?'':'none'
   document.getElementById('notesArea').classList.toggle('show',v==='notes')
   document.getElementById('progWrap').style.display  = v==='tasks'?'':'none'
-  document.getElementById('folderBar').style.display = v==='tasks'?'':'none'
+  document.getElementById('folderBar').style.display = ''
   document.getElementById('stats').style.display     = statsOpen&&v==='tasks'?'flex':'none'
   document.getElementById('addBtnLbl').textContent   = v==='tasks'?'新增任务':'新建便签'
   render()
@@ -824,12 +836,21 @@ function toggleDone(e,id){
   t.done=!t.done
   if(t.done&&t.repeat&&t.repeat!=='none'&&t.date){
     const nextDate=nextRepeatDate(t.date,t.repeat)
-    t.date=nextDate
-    t.done=false
-    t.notified={}
+    const repeat=t.repeat
+    const nextTask={
+      ...t,
+      id:state.nextTaskId++,
+      date:nextDate,
+      done:false,
+      repeat,
+      notified:{},
+      subtasks:(t.subtasks||[]).map(s=>({...s,id:uid(),done:false}))
+    }
+    t.repeat='none'
     expandedCards.delete(id)
     completedOpen=false
-    if(window.electronAPI) window.electronAPI.notify('已安排下次提醒',`「${t.title.slice(0,20)}」下次：${nextDate}`)
+    state.tasks.push(nextTask)
+    if(window.electronAPI) window.electronAPI.notify('已完成并安排下次',`「${t.title.slice(0,20)}」下次：${nextDate}`)
     render()
     return
   }
@@ -949,6 +970,10 @@ function openNoteAdd(){
   editNoteId=null
   document.getElementById('noteModalTitle').textContent='新建便签'
   document.getElementById('nTitle').value=''
+  const validFolders=state.folders.filter(f=>!f.builtIn)
+  const sel=document.getElementById('nFolder')
+  sel.innerHTML=validFolders.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('')
+  sel.value=curFolder!=='f0' ? curFolder : (validFolders[0]||{id:'f1'}).id
   document.getElementById('nBody').innerHTML=''
   document.getElementById('noteOverlay').classList.add('show')
   setTimeout(()=>document.getElementById('nBody').focus(),80)
@@ -959,6 +984,10 @@ function openNoteEdit(id){
   editNoteId=id
   document.getElementById('noteModalTitle').textContent='编辑便签'
   document.getElementById('nTitle').value=n.title||''
+  const validFolders=state.folders.filter(f=>!f.builtIn)
+  const sel=document.getElementById('nFolder')
+  sel.innerHTML=validFolders.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('')
+  sel.value=n.folderId || (validFolders[0]||{id:'f1'}).id
   document.getElementById('nBody').innerHTML=cleanNoteHtml(n.bodyHtml||esc(n.body||'').replace(/\n/g,'<br>'))
   document.getElementById('noteOverlay').classList.add('show')
   setTimeout(()=>document.getElementById('nBody').focus(),80)
@@ -977,11 +1006,12 @@ function saveNote(){
   const body=noteText(bodyHtml)
   if(!body)return
   const now=Date.now()
+  const folderId=document.getElementById('nFolder').value || (state.folders.find(f=>!f.builtIn)||{id:'f1'}).id
   if(editNoteId){
     const i=state.notes.findIndex(n=>n.id===editNoteId)
-    if(i>=0){ state.notes[i].title=document.getElementById('nTitle').value.trim(); state.notes[i].body=body; state.notes[i].bodyHtml=bodyHtml; state.notes[i].updatedAt=now }
+    if(i>=0){ state.notes[i].title=document.getElementById('nTitle').value.trim(); state.notes[i].folderId=folderId; state.notes[i].body=body; state.notes[i].bodyHtml=bodyHtml; state.notes[i].updatedAt=now }
   } else {
-    state.notes.push({id:state.nextNoteId++,title:document.getElementById('nTitle').value.trim(),body,bodyHtml,createdAt:now,updatedAt:now})
+    state.notes.push({id:state.nextNoteId++,title:document.getElementById('nTitle').value.trim(),folderId,body,bodyHtml,createdAt:now,updatedAt:now})
   }
   closeNoteModal(); render()
 }
@@ -1056,6 +1086,7 @@ function deleteFolder(id){
   if(!confirm('删除文件夹后，该文件夹下的任务将移至「工作」。确定？'))return
   const fallback=state.folders.find(f=>!f.builtIn&&f.id!==id)
   if(fallback) state.tasks.filter(t=>t.folderId===id).forEach(t=>t.folderId=fallback.id)
+  if(fallback) state.notes.filter(n=>n.folderId===id).forEach(n=>n.folderId=fallback.id)
   state.folders=state.folders.filter(f=>f.id!==id)
   if(curFolder===id) curFolder='f0'
   closeFolderModal(); render()
