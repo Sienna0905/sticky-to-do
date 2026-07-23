@@ -28,10 +28,12 @@ let isExpanded  = true
 let alwaysOnTop = false
 let edgeTopActive = false
 let edgeHoverStartedAt = 0
+let collapsedY = 0
 let updateCheckTimer = null
 
 const PANEL_WIDTH     = 360
 const COLLAPSED_WIDTH = 8
+const COLLAPSED_HEIGHT_RATIO = 0.5
 const EDGE_DETECT_WIDTH = 4
 const EDGE_DETECT_INTERVAL = 80
 const EDGE_DETECT_DWELL_MS = 500
@@ -65,6 +67,15 @@ function safeWin() {
   return mainWindow && !mainWindow.isDestroyed() ? mainWindow : null
 }
 
+function collapsedHeight(sh) {
+  return Math.round(sh * COLLAPSED_HEIGHT_RATIO)
+}
+
+function clampCollapsedY(y, sh) {
+  const h = collapsedHeight(sh)
+  return Math.max(0, Math.min(y, sh - h))
+}
+
 function applyTopState(w) {
   if (!w) return
   const shouldTop = alwaysOnTop || edgeTopActive
@@ -79,7 +90,9 @@ function snapToRight() {
   if (isExpanded) {
     w.setBounds({ x: sw - PANEL_WIDTH, y: 0, width: PANEL_WIDTH, height: sh })
   } else {
-    w.setBounds({ x: sw - COLLAPSED_WIDTH, y: 0, width: PANEL_WIDTH, height: sh })
+    const h = collapsedHeight(sh)
+    collapsedY = clampCollapsedY(collapsedY, sh)
+    w.setBounds({ x: sw - COLLAPSED_WIDTH, y: collapsedY, width: PANEL_WIDTH, height: h })
   }
 }
 
@@ -88,6 +101,7 @@ function expandPanel(options = {}) {
   if (options.edgeTriggered) edgeTopActive = true
   isExpanded = true
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
+  collapsedY = clampCollapsedY(w.getBounds().y, sh)
   w.setBounds({ x: sw - PANEL_WIDTH, y: 0, width: PANEL_WIDTH, height: sh }, true)
   if (!w.isVisible()) w.show()
   applyTopState(w)
@@ -101,7 +115,9 @@ function collapsePanel() {
   isExpanded = false
   edgeTopActive = false
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
-  w.setBounds({ x: sw - COLLAPSED_WIDTH, y: 0, width: PANEL_WIDTH, height: sh }, true)
+  const h = collapsedHeight(sh)
+  collapsedY = clampCollapsedY(collapsedY, sh)
+  w.setBounds({ x: sw - COLLAPSED_WIDTH, y: collapsedY, width: PANEL_WIDTH, height: h }, true)
   applyTopState(w)
   w.webContents.send('panel-state', { expanded: false })
   updateTrayMenu()
@@ -138,9 +154,11 @@ function registerWakeShortcuts() {
 function startEdgeDetect() {
   setInterval(() => {
     if (!safeWin() || isPinned) return
-    const { width: sw } = screen.getPrimaryDisplay().workAreaSize
+    const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
     const cur = screen.getCursorScreenPoint()
-    if (cur.x < sw - EDGE_DETECT_WIDTH || isExpanded) {
+    const h = collapsedHeight(sh)
+    const inHandleY = cur.y >= collapsedY && cur.y <= collapsedY + h
+    if (cur.x < sw - EDGE_DETECT_WIDTH || !inHandleY || isExpanded) {
       edgeHoverStartedAt = 0
       return
     }
@@ -304,6 +322,12 @@ function createWindow() {
 
   mainWindow.on('blur', () => {
     if (!isPinned && isExpanded) collapsePanel()
+  })
+
+  mainWindow.on('move', () => {
+    if (isExpanded) return
+    const { height: sh } = screen.getPrimaryDisplay().workAreaSize
+    collapsedY = clampCollapsedY(mainWindow.getBounds().y, sh)
   })
 
   mainWindow.on('closed', () => { mainWindow = null })
