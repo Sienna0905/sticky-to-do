@@ -28,6 +28,7 @@ let isExpanded  = true
 let alwaysOnTop = false
 let edgeTopActive = false
 let edgeHoverStartedAt = 0
+let panelLeaveStartedAt = 0
 let collapsedY = 0
 let updateCheckTimer = null
 
@@ -37,6 +38,7 @@ const COLLAPSED_HEIGHT_RATIO = 0.5
 const EDGE_DETECT_WIDTH = 4
 const EDGE_DETECT_INTERVAL = 80
 const EDGE_DETECT_DWELL_MS = 500
+const PANEL_LEAVE_DWELL_MS = 450
 const WAKE_SHORTCUTS = ['CommandOrControl+Shift+Y', 'CommandOrControl+Alt+Space']
 const ICON_PATH = path.join(__dirname, 'assets', 'icon.png')
 
@@ -71,8 +73,12 @@ function collapsedHeight(sh) {
   return Math.round(sh * COLLAPSED_HEIGHT_RATIO)
 }
 
+function panelHeight(sh) {
+  return collapsedHeight(sh)
+}
+
 function clampCollapsedY(y, sh) {
-  const h = collapsedHeight(sh)
+  const h = panelHeight(sh)
   return Math.max(0, Math.min(y, sh - h))
 }
 
@@ -87,11 +93,11 @@ function applyTopState(w) {
 function snapToRight() {
   const w = safeWin(); if (!w) return
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
+  const h = panelHeight(sh)
+  collapsedY = clampCollapsedY(collapsedY, sh)
   if (isExpanded) {
-    w.setBounds({ x: sw - PANEL_WIDTH, y: 0, width: PANEL_WIDTH, height: sh })
+    w.setBounds({ x: sw - PANEL_WIDTH, y: collapsedY, width: PANEL_WIDTH, height: h })
   } else {
-    const h = collapsedHeight(sh)
-    collapsedY = clampCollapsedY(collapsedY, sh)
     w.setBounds({ x: sw - COLLAPSED_WIDTH, y: collapsedY, width: PANEL_WIDTH, height: h })
   }
 }
@@ -101,8 +107,9 @@ function expandPanel(options = {}) {
   if (options.edgeTriggered) edgeTopActive = true
   isExpanded = true
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
+  const h = panelHeight(sh)
   collapsedY = clampCollapsedY(w.getBounds().y, sh)
-  w.setBounds({ x: sw - PANEL_WIDTH, y: 0, width: PANEL_WIDTH, height: sh }, true)
+  w.setBounds({ x: sw - PANEL_WIDTH, y: collapsedY, width: PANEL_WIDTH, height: h }, true)
   if (!w.isVisible()) w.show()
   applyTopState(w)
   w.focus()
@@ -114,8 +121,9 @@ function collapsePanel() {
   const w = safeWin(); if (!w || !isExpanded) return
   isExpanded = false
   edgeTopActive = false
+  panelLeaveStartedAt = 0
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
-  const h = collapsedHeight(sh)
+  const h = panelHeight(sh)
   collapsedY = clampCollapsedY(collapsedY, sh)
   w.setBounds({ x: sw - COLLAPSED_WIDTH, y: collapsedY, width: PANEL_WIDTH, height: h }, true)
   applyTopState(w)
@@ -153,12 +161,25 @@ function registerWakeShortcuts() {
 // ── 鼠标触边自动展开 ─────────────────────────────
 function startEdgeDetect() {
   setInterval(() => {
-    if (!safeWin() || isPinned) return
+    const w = safeWin()
+    if (!w) return
     const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
     const cur = screen.getCursorScreenPoint()
-    const h = collapsedHeight(sh)
+    const h = panelHeight(sh)
+    if (isExpanded) {
+      const b = w.getBounds()
+      const insidePanel = cur.x >= b.x && cur.x <= b.x + b.width && cur.y >= b.y && cur.y <= b.y + b.height
+      if (insidePanel || isPinned) {
+        panelLeaveStartedAt = 0
+        return
+      }
+      if (!panelLeaveStartedAt) panelLeaveStartedAt = Date.now()
+      if (Date.now() - panelLeaveStartedAt >= PANEL_LEAVE_DWELL_MS) collapsePanel()
+      return
+    }
+    if (isPinned) return
     const inHandleY = cur.y >= collapsedY && cur.y <= collapsedY + h
-    if (cur.x < sw - EDGE_DETECT_WIDTH || !inHandleY || isExpanded) {
+    if (cur.x < sw - EDGE_DETECT_WIDTH || !inHandleY) {
       edgeHoverStartedAt = 0
       return
     }
@@ -325,7 +346,6 @@ function createWindow() {
   })
 
   mainWindow.on('move', () => {
-    if (isExpanded) return
     const { height: sh } = screen.getPrimaryDisplay().workAreaSize
     collapsedY = clampCollapsedY(mainWindow.getBounds().y, sh)
   })
