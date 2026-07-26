@@ -35,10 +35,11 @@ let updateCheckTimer = null
 const PANEL_WIDTH     = 360
 const COLLAPSED_WIDTH = 8
 const COLLAPSED_HEIGHT_RATIO = 0.5
-const EDGE_DETECT_WIDTH = 4
-const EDGE_DETECT_INTERVAL = 80
-const EDGE_DETECT_DWELL_MS = 500
-const PANEL_LEAVE_DWELL_MS = 450
+const EDGE_DETECT_WIDTH = 12
+const EDGE_DETECT_INTERVAL = 35
+const EDGE_DETECT_DWELL_MS = 140
+const PANEL_LEAVE_DWELL_MS = 180
+const PANEL_LEAVE_PADDING = 6
 const WAKE_SHORTCUTS = ['CommandOrControl+Shift+Y', 'CommandOrControl+Alt+Space']
 const ICON_PATH = path.join(__dirname, 'assets', 'icon.png')
 
@@ -168,7 +169,11 @@ function startEdgeDetect() {
     const h = panelHeight(sh)
     if (isExpanded) {
       const b = w.getBounds()
-      const insidePanel = cur.x >= b.x && cur.x <= b.x + b.width && cur.y >= b.y && cur.y <= b.y + b.height
+      const insidePanel =
+        cur.x >= b.x - PANEL_LEAVE_PADDING &&
+        cur.x <= b.x + b.width + PANEL_LEAVE_PADDING &&
+        cur.y >= b.y - PANEL_LEAVE_PADDING &&
+        cur.y <= b.y + b.height + PANEL_LEAVE_PADDING
       if (insidePanel || isPinned) {
         panelLeaveStartedAt = 0
         return
@@ -187,6 +192,7 @@ function startEdgeDetect() {
     if (Date.now() - edgeHoverStartedAt >= EDGE_DETECT_DWELL_MS) {
       showWindow({ edgeTriggered: true })
       edgeHoverStartedAt = 0
+      panelLeaveStartedAt = 0
     }
   }, EDGE_DETECT_INTERVAL)
 }
