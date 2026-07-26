@@ -23,7 +23,7 @@ function saveData(data) {
 // ── 全局状态 ────────────────────────────────────
 let mainWindow  = null
 let tray        = null
-let isPinned    = true
+let isPinned    = false
 let isExpanded  = true
 let alwaysOnTop = false
 let edgeTopActive = false
@@ -174,7 +174,7 @@ function startEdgeDetect() {
         cur.x <= b.x + b.width + PANEL_LEAVE_PADDING &&
         cur.y >= b.y - PANEL_LEAVE_PADDING &&
         cur.y <= b.y + b.height + PANEL_LEAVE_PADDING
-      if (insidePanel || isPinned) {
+      if (insidePanel) {
         panelLeaveStartedAt = 0
         return
       }
@@ -182,7 +182,6 @@ function startEdgeDetect() {
       if (Date.now() - panelLeaveStartedAt >= PANEL_LEAVE_DWELL_MS) collapsePanel()
       return
     }
-    if (isPinned) return
     const inHandleY = cur.y >= collapsedY && cur.y <= collapsedY + h
     if (cur.x < sw - EDGE_DETECT_WIDTH || !inHandleY) {
       edgeHoverStartedAt = 0
@@ -348,7 +347,7 @@ function createWindow() {
   })
 
   mainWindow.on('blur', () => {
-    if (!isPinned && isExpanded) collapsePanel()
+    if (isExpanded) collapsePanel()
   })
 
   mainWindow.on('move', () => {
