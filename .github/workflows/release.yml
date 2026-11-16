@@ -1,9 +1,9 @@
-name: Release
+name: Release SideNote
 
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 permissions:
   contents: write
@@ -11,21 +11,27 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build and publish
-        run: npm run release
+      - uses: actions/checkout@v4
+      - name: Build and verify
+        shell: powershell
+        run: |
+          ./build.ps1
+          $testProcess = Start-Process ./SideNote.exe -ArgumentList '--self-test' -WindowStyle Hidden -Wait -PassThru
+          if ($testProcess.ExitCode -ne 0) { throw 'SideNote self-test failed' }
+          $result = Get-Content ./test-result.txt -Raw
+          if (-not $result.StartsWith('PASS:')) { throw $result }
+          Write-Output $result
+      - name: Package
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -LiteralPath SideNote.exe,使用说明.txt -DestinationPath dist/SideNote-Windows.zip
+          $hash = (Get-FileHash dist/SideNote-Windows.zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  SideNote-Windows.zip" | Set-Content dist/SHA256SUMS.txt -Encoding ascii
+      - name: Publish release
+        shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create $env:GITHUB_REF_NAME dist/SideNote-Windows.zip dist/SHA256SUMS.txt --title "SideNote $env:GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md --latest

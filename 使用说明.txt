@@ -1,0 +1,21 @@
+SideNote · 桌面便签待办
+
+适用于 Windows 10 / 11。完整解压后，双击 SideNote.exe 即可运行。
+
+使用方法
+1. 鼠标靠近主屏幕右侧中段，面板会自动展开；离开后自动收起。
+2. 点击“固定”让面板保持显示，或使用系统托盘图标打开。
+3. 在“待办”和“笔记”之间切换；内容自动保存到本机。
+4. 右键系统托盘图标，选择退出。
+
+数据备份
+数据目录：%LOCALAPPDATA%\SideNote
+退出应用后复制整个目录即可备份。下载包不含个人待办或日记。
+
+版本说明
+这是替换旧 Electron 应用的 Windows 原生版本。旧数据不会自动迁移。
+当前仍在完善中，暂不提供云同步或应用内自动更新。
+
+下载更新与反馈
+https://github.com/Sienna0905/sticky-to-do/releases/latest
+https://github.com/Sienna0905/sticky-to-do/issues

@@ -1,34 +1,48 @@
-# Sticky To Do
+# SideNote · 桌面便签待办
 
-桌面侧边便签待办，使用 Electron 构建。
+将待办和随手记放在桌面右侧，需要时展开，记录后收起。
 
-## 下载使用
+一直想找一款合心意的待办与便签应用，试过许多仍不满意，于是决定自己做一个。SideNote 还在持续完善，欢迎下载体验。
 
-到 GitHub Releases 下载最新版：
+## 下载体验
 
-- `便签-版本号-win-x64.zip`：绿色版，下载后解压，直接运行里面的 `便签.exe`。
-- `便签-版本号-win-x64.exe`：安装版，支持更完整的自动更新体验，但未签名时可能被 Windows SmartScreen 拦截。
+**适用于 Windows 10 / 11。**
 
-如果 Windows 拦截安装版，优先使用 zip 绿色版。
+- [下载最新版 SideNote（ZIP 免安装版）](https://github.com/Sienna0905/sticky-to-do/releases/latest/download/SideNote-Windows.zip)
+- [查看版本说明和其他下载文件](https://github.com/Sienna0905/sticky-to-do/releases/latest)
 
-## 本地运行
+下载后先完整解压，再双击 `SideNote.exe`。无需安装 Node.js 或 Electron。
 
-```bash
-npm install
-npm start
+首次启动后，鼠标靠近主屏幕右侧中段即可展开面板。点击「固定」可以让它保持显示；右键系统托盘图标可退出。
+
+## 界面预览
+
+<img src="docs/tasks.png" width="350" alt="SideNote 待办面板"> <img src="docs/note.png" width="350" alt="SideNote 笔记编辑界面">
+
+截图中的待办和笔记为演示数据，下载包不附带个人记录。
+
+## 主要功能
+
+- 待办支持分区、优先级、日期区间和定时提醒；未完成事项可以连续显示在「今日」。
+- 笔记支持富文本和文件夹整理，标题及正文自动保存到本地。
+- 面板支持触边展开、离开收起、固定显示和调整大小；可设置透明度、字体及开机启动。
+
+详细行为见[功能说明](docs/功能说明.md)。
+
+## 数据与旧版
+
+数据保存在 `%LOCALAPPDATA%\SideNote\data.xml`，另有上一版备份 `data.xml.bak`。备份时先退出应用，再复制整个 SideNote 数据文件夹。当前版本无云同步。
+
+`v2.0.0` 起改为 C# / WPF 原生应用，替换原 Electron 版 Sticky To Do。新版不会自动迁移旧版数据，也不包含旧版的自动更新功能。旧代码与发布记录保留在仓库历史中。
+
+## 本地编译
+
+使用 Windows 自带的 .NET Framework / WPF：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File build.ps1
 ```
 
-## 发布新版
+生成 `SideNote.exe`。运行 `SideNote.exe --self-test` 可验证日期过滤、完成状态、中文保存及备份恢复；结果写入 `test-result.txt`。
 
-自动更新使用 GitHub Releases。发布新版时：
-
-1. 修改 `package.json` 里的 `version`。
-2. 提交并推送代码。
-3. 创建并推送对应标签，例如：
-
-```bash
-git tag v1.0.5
-git push origin main --tags
-```
-
-GitHub Actions 会自动构建 Windows 安装包、绿色版 zip 和自动更新元数据，并上传到 Release。
+GitHub Actions 在推送 `v*` 标签后编译、运行自检，并发布免安装 ZIP 包。
