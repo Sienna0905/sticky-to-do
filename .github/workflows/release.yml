@@ -23,10 +23,10 @@ jobs:
           if (-not $result.StartsWith('PASS:')) { throw $result }
           Write-Output $result
       - name: Package
-        shell: powershell
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
-          Compress-Archive -LiteralPath SideNote.exe,使用说明.txt -DestinationPath dist/SideNote-Windows.zip
+          Compress-Archive -LiteralPath 'SideNote.exe','使用说明.txt' -DestinationPath dist/SideNote-Windows.zip
           $hash = (Get-FileHash dist/SideNote-Windows.zip -Algorithm SHA256).Hash.ToLower()
           "$hash  SideNote-Windows.zip" | Set-Content dist/SHA256SUMS.txt -Encoding ascii
       - name: Publish release
